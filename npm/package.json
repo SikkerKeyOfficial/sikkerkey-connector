@@ -1,0 +1,33 @@
+{
+  "name": "sikkerkey-connector",
+  "version": "0.0.1",
+  "description": "SikkerKey Connector, a private outbound tunnel from your network to SikkerKey",
+  "keywords": [
+    "sikkerkey",
+    "tunnel",
+    "connector",
+    "secrets",
+    "vault"
+  ],
+  "homepage": "https://sikkerkey.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SikkerKeyOfficial/sikkerkey-connector.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SikkerKeyOfficial/sikkerkey-connector/issues"
+  },
+  "license": "MIT",
+  "bin": {
+    "sikkerkey-connector": "bin/sikkerkey-connector"
+  },
+  "files": [
+    "bin"
+  ],
+  "optionalDependencies": {
+    "@sikkerkey/connector-linux-x64": "0.0.1",
+    "@sikkerkey/connector-linux-arm64": "0.0.1",
+    "@sikkerkey/connector-darwin-x64": "0.0.1",
+    "@sikkerkey/connector-darwin-arm64": "0.0.1"
+  }
+}

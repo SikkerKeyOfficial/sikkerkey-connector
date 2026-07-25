@@ -1,0 +1,21 @@
+{
+  "name": "@sikkerkey/connector-linux-arm64",
+  "version": "0.0.1",
+  "description": "SikkerKey Connector Linux arm64 binary",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SikkerKeyOfficial/sikkerkey-connector.git",
+    "directory": "npm/linux-arm64"
+  },
+  "homepage": "https://sikkerkey.com",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "sikkerkey-connector"
+  ]
+}

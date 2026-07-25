@@ -1,0 +1,118 @@
+name: Publish
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # attach binaries to the GitHub release
+      id-token: write   # OIDC trusted publishing; no npm token anywhere
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm install -g npm@latest   # trusted publishing needs npm >= 11.5.1
+
+      - name: Resolve and verify version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DECLARED=$(node -p "require('./npm/package.json').version")
+          if [ "$VERSION" != "$DECLARED" ]; then
+            echo "Tag $GITHUB_REF_NAME implies $VERSION but npm/package.json declares $DECLARED." >&2
+            echo "Bump the package.json files before tagging." >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build platform binaries
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # CGO_ENABLED=0 so the Linux builds are fully static. With cgo the net
+          # package links the system resolver, which ties the binary to the
+          # glibc it was built against and would fail to start on musl hosts
+          # (Alpine) or an older distribution. The connector installs onto
+          # whatever machine the customer already runs, so it cannot assume one.
+          export CGO_ENABLED=0
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+          GOOS=linux  GOARCH=amd64 go build -trimpath -ldflags="$LDFLAGS" -o npm/linux-x64/sikkerkey-connector    main.go
+          GOOS=linux  GOARCH=arm64 go build -trimpath -ldflags="$LDFLAGS" -o npm/linux-arm64/sikkerkey-connector  main.go
+          GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags="$LDFLAGS" -o npm/darwin-x64/sikkerkey-connector   main.go
+          GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags="$LDFLAGS" -o npm/darwin-arm64/sikkerkey-connector main.go
+
+      - name: Verify provenance metadata
+        run: |
+          # npm validates every package's repository.url against the repo the
+          # build came from and rejects the publish if they disagree. A package
+          # missing the field fails mid-publish, after earlier packages are
+          # already live, so check all five up front.
+          node -e '
+            const fs = require("fs");
+            const expected = "https://github.com/${{ github.repository }}";
+            const files = ["npm/package.json", "npm/linux-x64/package.json",
+              "npm/linux-arm64/package.json", "npm/darwin-x64/package.json",
+              "npm/darwin-arm64/package.json"];
+            let bad = 0;
+            for (const f of files) {
+              const raw = (JSON.parse(fs.readFileSync(f)).repository || {}).url || "";
+              const norm = raw.replace(/^git\+/, "").replace(/\.git$/, "");
+              if (norm !== expected) {
+                console.error(`${f}: repository.url is "${raw}", expected to normalize to ${expected}`);
+                bad++;
+              }
+            }
+            if (bad) process.exit(1);
+            console.log(`All ${files.length} manifests declare ${expected}`);
+          '
+
+      - name: Verify tarballs carry the binaries
+        run: |
+          # The binaries are gitignored, so a stray ignore rule reaching into a
+          # package root would produce an empty tarball that only fails once a
+          # customer installs it. Assert the payload here instead.
+          for platform in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            (cd "npm/$platform" && npm pack --dry-run --json | grep -q '"path": *"sikkerkey-connector"') \
+              || { echo "@sikkerkey/connector-$platform tarball is missing the binary" >&2; exit 1; }
+          done
+          (cd npm && npm pack --dry-run --json | grep -q '"path": *"bin/sikkerkey-connector"') \
+            || { echo "sikkerkey-connector wrapper tarball is missing bin/sikkerkey-connector" >&2; exit 1; }
+
+      - name: Stage release artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # The download channel install.sh uses. Named by platform so the
+          # installer can construct a URL without querying the release API.
+          mkdir -p dist
+          for platform in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            cp "npm/$platform/sikkerkey-connector" "dist/sikkerkey-connector-$platform"
+          done
+          (cd dist && sha256sum sikkerkey-connector-* > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: Publish release binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/sikkerkey-connector-*
+            dist/SHA256SUMS
+          generate_release_notes: true
+
+      - name: Publish platform packages
+        run: |
+          for platform in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
+            echo "Publishing @sikkerkey/connector-$platform"
+            (cd "npm/$platform" && npm publish --access public)
+          done
+
+      - name: Publish wrapper package
+        run: cd npm && npm publish --access public

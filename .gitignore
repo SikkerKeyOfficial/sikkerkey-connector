@@ -1,0 +1,32 @@
+# Release tooling (local only)
+push.sh
+
+# Compiled binaries. Named explicitly rather than as a bare
+# "sikkerkey-connector" pattern, which would also swallow
+# npm/bin/sikkerkey-connector — the Node launcher the wrapper package declares
+# as its entry point.
+/sikkerkey-connector
+/sikkerkey-connector-*
+/npm/linux-x64/sikkerkey-connector
+/npm/linux-arm64/sikkerkey-connector
+/npm/darwin-x64/sikkerkey-connector
+/npm/darwin-arm64/sikkerkey-connector
+dist/
+
+# Go
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage.out
+*.test

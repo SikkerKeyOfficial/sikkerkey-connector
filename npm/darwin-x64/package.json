@@ -1,0 +1,21 @@
+{
+  "name": "@sikkerkey/connector-darwin-x64",
+  "version": "0.0.1",
+  "description": "SikkerKey Connector macOS x64 binary",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SikkerKeyOfficial/sikkerkey-connector.git",
+    "directory": "npm/darwin-x64"
+  },
+  "homepage": "https://sikkerkey.com",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "sikkerkey-connector"
+  ]
+}
