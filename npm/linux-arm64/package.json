@@ -1,6 +1,6 @@
 {
   "name": "@sikkerkey/connector-linux-arm64",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "SikkerKey Connector Linux arm64 binary",
   "license": "MIT",
   "repository": {
