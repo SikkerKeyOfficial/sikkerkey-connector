@@ -1,0 +1,50 @@
+#!/usr/bin/env node
+
+// Launcher for the platform binary published alongside this package.
+//
+// npm is a delivery channel here, not where the connector runs from: `install`
+// copies the binary to /usr/local/bin and points the service unit at that copy,
+// so the running daemon never depends on node_modules or on this script.
+
+const { spawnSync } = require('child_process');
+const os = require('os');
+
+const platformKey = `${os.platform()}-${os.arch()}`;
+
+const packages = {
+  'linux-x64': '@sikkerkey/connector-linux-x64/sikkerkey-connector',
+  'linux-arm64': '@sikkerkey/connector-linux-arm64/sikkerkey-connector',
+  'darwin-x64': '@sikkerkey/connector-darwin-x64/sikkerkey-connector',
+  'darwin-arm64': '@sikkerkey/connector-darwin-arm64/sikkerkey-connector',
+};
+
+const binaryPath = packages[platformKey];
+
+if (!binaryPath) {
+  console.error(`Unsupported platform: ${platformKey}`);
+  console.error(`Supported: ${Object.keys(packages).join(', ')}`);
+  process.exit(1);
+}
+
+let resolved;
+try {
+  resolved = require.resolve(binaryPath);
+} catch {
+  console.error(`Could not find the SikkerKey Connector binary for ${platformKey}`);
+  console.error(`Try reinstalling: npm install -g sikkerkey-connector`);
+  process.exit(1);
+}
+
+// spawnSync rather than execFileSync so a signal that stops this launcher is
+// reported faithfully instead of surfacing as an opaque non-zero exit. `run`
+// under a supervisor uses the installed binary directly and never reaches here.
+const result = spawnSync(resolved, process.argv.slice(2), { stdio: 'inherit' });
+
+if (result.error) {
+  console.error(result.error.message);
+  process.exit(1);
+}
+if (result.signal) {
+  process.kill(process.pid, result.signal);
+}
+process.exit(result.status ?? 0);
